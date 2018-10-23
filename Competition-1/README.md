@@ -1,9 +1,9 @@
 
 <center><h1><span style="color: #f2cf4a; font-size: 1.2em; line-height:40px">CS565600 Deep Learning<br/>DataLab Cup 1: Predicting Appropriate Response</span></h1></center>
-<center><h3>Team22: SkyNet Zero&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Members: 105062635 吳浩寧 105062514 張嘉宏</h3></center>
+<center><h3>Team22: SkyNet Zero</h3></center>
 <a id='Top'></a>
-### Table of Contents
 
+### Table of Contents
 * [Problem Description](#Problem-Description)
 * [Basic Ideas](#Basic-Ideas)
 * [Preprocessing](#Preprocessing)
@@ -49,10 +49,12 @@
 #### TF-IDF
 相較於最基本的Bag-of-Words僅計算每個詞彙出現的次數，TF-IDF考慮了每個詞彙出現在所有文件中的頻率，因此直覺上更能反映每個詞彙的重要性。在scikit-learn中，TF-IDF的定義如下：TF為一詞彙在一篇文章中出現的次數，DF則為該詞彙出現在幾篇文章中，$n_d$為文章總數，因此TF-IDF可以由下列公式計算:  
 $TF\textrm{-}IDF_t=TF_t\cdot\log{\frac{1+n_d}{1+DF_{t, d}}}$
+
 <a id='Part-of-speech-Tagging'></a>
 #### Part-of-speech Tagging
 我們認為一句話出現的各詞性數量，一定程度上反映了這句話的意義，比如若問題是「你要去哪裡」，那答案中可以預期會出現一個地名。jieba本身就有提供詞性標注的功能，支援ICTCLAS這個詞性標注集([ICTCLAS的詞性分類]( https://gist.github.com/luw2007/6016931))，可以同時進行斷句與詞性標注。除了一般認知的名詞、動詞外，可以往下細分成人名、地名、動詞、副動詞等等較精細的分類，缺點是Jieba只會根據字典中的預設的詞性來標注，對於中文裡約四分之一的多詞性詞彙無法進一步處理，不過一句話不會同時出現太多這種詞彙，因此影響較小。 範例程式：
-<img src="POS.PNG">
+
+<img src="images/POS.PNG">
 
 <a id='Dependency-Parsing'></a>
 #### Dependency Parsing
@@ -133,7 +135,7 @@ doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個
 #### Part-of-speech Tagging
 由於ICTCLAS全部的詞性多達五十幾個，很多過細的分類其實是不必要的，我們將相近的詞性分在一起，最後選出11大類，第12類u(unknown)則代表無法被分到前面任一組別的詞性，對應方式如下表所示，sub-POS都會被歸類到其上方的類型一起統計。
 
-<img src="images/TABLE1.PNG", width="600">
+<img src="images/TABLE1.PNG" width="600">
 
 我們以每個詞性出現的次數來當作一個句子的feature，並透過課程中教過的方式，使用Lasso來選出最有用features，從下圖中可以看到，當alpha=0.05時，除了第0個feature是TF-IDF外，可以選出第3, 7, 10, 11，分別對應n, r, u, v等詞性，作為最後使用的features。
 <img src="images/LASSO1.PNG">
