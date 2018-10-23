@@ -60,7 +60,7 @@
 ### First Thought
 根據[Speed/accuracy trade-offs for modern convolutional object detectors](https://arxiv.org/pdf/1611.10012.pdf)中的比較圖，我們可以發現Faster RCNN算是比較精確的模型，相較於其他比較新的架構如SSD、YOLO雖然速度快許多但精確度並不一定較高。而由於這次作業已經預先提供許多Regions of Interest (RoIs)，等於不一定要使用End-to-End的架構，因此最後我們選擇使用較簡單，精確度理論上又不會太低的[Fast RCNN](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/Girshick_Fast_R-CNN_ICCV_2015_paper.pdf)來實作。
 
-<img src="images/Acc_Time.png" width="600">
+<p align="center"><img src="images/Acc_Time.png" width="600"><\p
 
 [Back to Top](#Top)
 
@@ -131,13 +131,13 @@ Labels (106,):
 <img src="images/VGG16.png">  
 由於在我們實驗室的工作站上已經有之前學長下載好的ImageNet ILSVRC2012的Dataset，以此我們就直接拿來使用。ImageNet的圖片都已被轉成TFRecord的形式，其優點在於他能將Image與Label統一儲存，更好地利用記憶體，加快資料流的速度，以增進Training效率。
 只要先設定好相關資料所在的路徑，便可以用Tensorflow寫好的[train_image_classifier.py](https://github.com/tensorflow/models/blob/master/research/slim/train_image_classifier.py)來進行Training，不過得根據自己的模型調整各種Hyperparameters，以下是我們使用的設定：      
-<img src="images/TRAIN_CODE.PNG" width="400">  
+<p align="center"><img src="images/TRAIN_CODE.PNG" width="400"></p>
 執行後每隔一段時間就會產生checkpoint，如此我們便能將Variable Weights讀到Tensorflow Slim底下的VGG模型中，但要達到最理想的精準度太花時間了，因此我們只Train了兩天的時間就直接來拿來使用，但經過約400000個iterations後，Loss從最初的7點多掉到2點多，執行[eval_image_classifier.py](https://github.com/tensorflow/models/blob/master/research/slim/eval_image_classifier.py)的Top-1 Accuracy可以到達0.5以上。
 
 <a id='RoI-Pooling'></a>
 ### RoI Pooling
 Fast RCNN把VGG16中第5次的Max Pooling拿掉，取代為RoI Pooling，因此我們的Feature Map大小縮小了<img alt="$2^4$" src="svgs/812eddc94b3c44a52699e8da08d64dd6.png?invert_in_darkmode" align="middle" width="14.716680000000002pt" height="26.70657pt"/>倍。RoI Pooling會從Feature Map中選取RoI在原圖中等比例縮放後的區域，再將該區域平均分割成<img alt="$H_C×W_C$" src="svgs/3e6ee8d4bb3b91432656ba1a7d7b581c.png?invert_in_darkmode" align="middle" width="50.33325pt" height="22.381919999999983pt"/>塊區域(我們使用7×7)，最後只保留每塊區域中最大的值。利如下圖即為<img alt="$H_C×W_C$" src="svgs/3e6ee8d4bb3b91432656ba1a7d7b581c.png?invert_in_darkmode" align="middle" width="50.33325pt" height="22.381919999999983pt"/>各種大小的情況：
-<img src="images/RoI_Pooling.png" width="600">
+<p align="center"><img src="images/RoI_Pooling.png" width="600"></p>
 
 這裡我們有兩種實作方法，一是採用別人寫好的[Roi Pooling Operation](https://github.com/deepsense-ai/roi-pooling)，另外也可以使用tf.image.crop_and_resize，但後者比較不一樣的地方是Resize選取區塊後的每個像素，是由Bilinear Interpolation的方式來取得，感覺和Mask RCNN的RoIAlign方法比較像；兩者輸出Tensor的Dimension順序也不太一樣，假設原本Input大小為<img alt="$N×H×W×C$" src="svgs/d45d5a0ac5aa536b330c4c0911a41e8a.png?invert_in_darkmode" align="middle" width="60.52612500000001pt" height="22.381919999999983pt"/>，我們總共有R個RoIs ，Roi Pooling的輸出是<img alt="$R×C×H_C×W_C$" src="svgs/215133d367e2650326e959bd3abc9572.png?invert_in_darkmode" align="middle" width="75.775755pt" height="22.381919999999983pt"/>，crop_and_resize則是<img alt="$R×H_C×W_C×C$" src="svgs/81a301b3b8f6cf11ec63ca21b9bcbe3e.png?invert_in_darkmode" align="middle" width="76.63161000000001pt" height="22.381919999999983pt"/>。
 
@@ -146,12 +146,12 @@ Fast RCNN把VGG16中第5次的Max Pooling拿掉，取代為RoI Pooling，因此�
 RCNN的特點之一：Multi-Task Loss，讓我們可以一次針對兩個問題進行最佳化。RoI Pooling完後會先經過兩層FC Layers，在這裡我們除了要把原本做Classification的Layer改為21個類別的分類器，還需額外一層FC Layer來進行BBox Regression，比較特別的是，我們使用的是Smooth L1 Loss而非一般Linear Regression使用的L2 Loss，觀察這兩種Loss可以得知，當預測值離正確值越遠時，L2 Loss的斜率會一直增加，Smooth L1 Loss則維持在<img alt="$\pm1$" src="svgs/9ae0fd34c5ab292d1ccce6a94d7188d5.png?invert_in_darkmode" align="middle" width="20.92629pt" height="21.10812pt"/>，如此可以避免Backpropagation產生Gradient Explosion的問題。實作上我們傳進的Regression Target只有在Ground Truth Label所屬的4個連續位置絕不是0，其他屬於Background的RoI都是0也沒有定義GT BBox，因此我們可以用tf.where，針對非0的位置進行計算就好。  
 
 <p align="center"><img alt="$$smooth_{L1}(x) = \left\{ \begin{array}{rcl}&#10;0.5x^2 &amp; \mbox{for} &amp; |x|\leq1 \\&#10;|x|-0.5 &amp; \mbox{for} &amp; |x|&gt;1&#10;\end{array}\right.$$" src="svgs/095e0a2da01ec74c2bc34cbbab6ac0bb.png?invert_in_darkmode" align="middle" width="294.888pt" height="39.30498pt"/></p>
-<img src="images/L1_L2.png" width="400">
+<p align="center"><img src="images/L1_L2.png" width="400"></p>
 
 <a id='Overall-Architecture'></a>
 ### Overall Architecture
 我們整體的架構可以用Tensorboard來觀察。
-<img src="images/Architecture.png">
+<p align="center"><img src="images/Architecture.png" width="600"></p>
 [Back to Top](#Top)
 
 <a id='Non-Max-Suppression'></a>
@@ -160,7 +160,7 @@ RCNN的特點之一：Multi-Task Loss，讓我們可以一次針對兩個問題�
 首先我們進行初步的篩選，我們先找出每個Class在所有Image的所有BBoxes中出現的機率，我們假設總數不會超過40000個，於是我們可以將所有的機率進行排序，並將分數太低的那些BBoxes剔除；接著我們假設一張圖不可能出現太多物體，所以每張圖最多只保留100個Boxes，以上這些參數都是Hyperparameters。
 刪去大部分的RoIs後，我們便能進行計算複雜度很高的NMS，來將太相近的BBoxes剔除，NMS的原理其實就是一種Greedy的演算法，拿來刪除對同一個物體太多重疊的框。我們會從機率最高的框開始找起，將它保留下來，並把其他所有和它IoU超過一定Threshold的BBoxes刪除，接著找剩下的BBoxes中機率最高者，一值不斷重複下去，最後回傳要保留的BBox Indices，這個過程是針對每個類別都必須進行一次。
 最後根據一開始的觀察，我們將大小過小(小於100)的BBoxes刪除，將小於一定機率(約0.6上下)的BBoxes刪除，若所有的BBoxes都被刪光了，我們就重新從圖中所有的Prediction選出機率最高者，因此我們至少留有一個框在圖中。
-<img src="images/NMS.jpg" width="600">
+<p align="center"><img src="images/NMS.jpg" width="600"></p>
 
 <a id='Experiments'></a>
 ### Experiments
@@ -194,9 +194,9 @@ RCNN的特點之一：Multi-Task Loss，讓我們可以一次針對兩個問題�
     &nbsp;  
 2. Baseline + Class Balancing:  
     Baseline + Class Balancing: 花了2h 18min 40s Train了7個epochs後，Training Loss從Cls: 1.63010526, Reg:57.77796936降到Cls:0.79456723, Reg:36.50595856，可以注意到Classification的Loss下降快非常多，不過Regression下降的幅度反而較低，不過在後續的Training當中精準度都有漸漸提高，最後經過412748個Iterations後Loss變為Cls:0.83267421, Reg: 3.00880456，最後得到的分數約0.60，比我們在截止日前上傳的還要稍微好一些。下面秀出幾個比較好的結果，可以發現就算同時有許多的物體靠在一起，我們的模型仍能將它們區分開來。  
-<img src="images/Multi.png" align="left"><img src="images/People.png">  
+<img src="images/Multi.png" align="left"><img src="images/People.png">
 至於判斷錯誤的圖片，我們觀察到通常會錯的可能是彼此有相關性的類別，比如貓和狗和其他動物，或是長得像動物的人；不過有時候仍會發生預測一大堆Person的現象，代表可能仍然有Overfitting的現象發生；另外由於Training時長形的圖片較多，高達8299張，造成Testing時高形的圖片很也容易分錯，不過即使有些BBox分類錯誤或是根本沒圈到物體，我們還是可以看出物體的形狀有被學習到，比如aeroplane, dining table就會是扁長形的, person, bottle就會是瘦高形的等等。  
-<img src="images/Bad.png" align="left"><img src="images/Cat_Woman.png">  
+<img src="images/Bad.png" align="left"><img src="images/Cat_Woman.png">
 &nbsp;  
 3. Baseline + FC6, FC7 Trained From Scratch
     我們將後面兩層FC Layers改成重新初始化(使用預設的Xavier Initialization)從頭開始Train，Weight Decay一樣使用0.0005，花了9h 41min 12s Train了20個epochs後我們發現一個特別的現象，雖然Training Loss不斷降低，但是Validation Loss幾乎都不會下降，不過最後視覺化得到的結果BBox仍能非常精確地圈出物體，不過卻很容易猜錯框中的物體類別，下面是我們用Tensorboard觀察Loss與Accuracy(針對每個RoI進行Classification)變化的結果。  
