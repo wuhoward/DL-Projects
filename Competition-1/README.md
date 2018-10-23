@@ -47,8 +47,12 @@
 ### Feature Engineering
 <a id='TF-IDF'></a>
 #### TF-IDF
+<<<<<<< HEAD
 相較於最基本的Bag-of-Words僅計算每個詞彙出現的次數，TF-IDF考慮了每個詞彙出現在所有文件中的頻率，因此直覺上更能反映每個詞彙的重要性。在scikit-learn中，TF-IDF的定義如下：TF為一詞彙在一篇文章中出現的次數，DF則為該詞彙出現在幾篇文章中，<img src="svgs/582aa6dfd54d1324fd2f305f5634176b.svg?invert_in_darkmode" align=middle width=16.64751pt height=14.102549999999994pt/>為文章總數，因此TF-IDF可以由下列公式計算:  
 <img src="svgs/497b833ea487332ebaf24f9fc14ce721.svg?invert_in_darkmode" align=middle width=208.197495pt height=28.456229999999977pt/>
+=======
+相較於最基本的Bag-of-Words僅計算每個詞彙出現的次數，TF-IDF考慮了每個詞彙出現在所有文件中的頻率，因此直覺上更能反映每個詞彙的重要性。在scikit-learn中，TF-IDF的定義如下：TF為一詞彙在一篇文章中出現的次數，DF則為該詞彙出現在幾篇文章中，<img src="https://rawgit.com/wuhoward/DL-Projects/master/svgs/582aa6dfd54d1324fd2f305f5634176b.svg?invert_in_darkmode" align=middle width=16.64751pt height=14.102549999999994pt/>為文章總數，因此TF-IDF可以由下列公式計算:<a href="https://www.codecogs.com/eqnedit.php?latex=TF\textrm{-}IDF_t=TF_t\cdot\log{\frac{1&plus;n_d}{1&plus;DF_{t,&space;d}}}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?TF\textrm{-}IDF_t=TF_t\cdot\log{\frac{1&plus;n_d}{1&plus;DF_{t,&space;d}}}" title="TF\textrm{-}IDF_t=TF_t\cdot\log{\frac{1+n_d}{1+DF_{t, d}}}" /></a>  
+>>>>>>> ad6040e95b5f8bde4f506485a9b07e05485dcf76
 
 <a id='Part-of-speech-Tagging'></a>
 #### Part-of-speech Tagging
