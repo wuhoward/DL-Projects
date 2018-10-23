@@ -34,9 +34,11 @@
 觀察我們的題目，可以發現題目通常由1~3個句子組成，可能是直述句或問句，說話的人可能是同一位或兩到三位；答案的長短則較不一致，通常較長的選項很有可能是答案，經我們測試選最長的選項正確率大概有35%；通常正確選項和題目會有重複的關鍵字，但有時每個選項都有出現關鍵字，太短的答案如「好啊」則和題目完全沒有重複的字。
 
 觀察助教提供的training dataset，由8個不同類型節目組成，每個節目又分成很多集，通常一行只有一句話，可以看出每個文件詞彙的分布其實不太一樣，視節目類型而定。再者，由於training data是節目台詞，因此出現很多不會在testing data中看到的句型，比如說每集節目的開場白與結尾，或鬼打牆連續出現同樣句子的情況，因此可以說training data和testing data在資料分布上其實有一定的bias，並不是那麼容易取得很高的精確度，雖然testing data也有少數一模一樣的句子。
+
 <a id='Basic-Ideas'></a>
 ### Basic Ideas
 我們對問題主要由兩個方向來著手。一開始誤解了此次作業的目的，一直執著在用之前學過的模型，怕不符合作業要求，所以把所有自己想得到的features餵進各種基本的Machine Learning模型，試圖湊出最好的結果，後來發現這樣做效果都無法大幅提升，最後勉強將精確度提升到48%。但若我們直接用word2vec方式比較question與options的相似度，精確度可以在private data上達到64%，不過由於我們根據public data選擇了一個由Random Forest和word2vec similarity進行Voting的model，雖然看似精準度較高，但事後證明做這種選擇反而造成overfitting。
+
 <a id='Preprocessing'></a>
 ### Preprocessing
 我們使用jieba這個python套件來進行中文的分詞，將原本連在一起的一段文字轉換成一個List of String，總共出現的字有174420個，由於出現太頻繁次的字和太稀疏的字對整段文字的意義不大，因此一般會選取出現次數介於中間的文字，來作為最終學習的辭典，不過經過實驗後發現，像TF-IDF的計算或gensim中word2vec的實作方式，本身就有考慮到詞彙出現的頻率，因此計算feature時，我們沒有拿掉任何stopwords或rare words。
@@ -45,6 +47,7 @@
 
 <a id='Feature-Engineering'></a>
 ### Feature Engineering
+
 <a id='TF-IDF'></a>
 #### TF-IDF
 相較於最基本的Bag-of-Words僅計算每個詞彙出現的次數，TF-IDF考慮了每個詞彙出現在所有文件中的頻率，因此直覺上更能反映每個詞彙的重要性。在scikit-learn中，TF-IDF的定義如下：TF為一詞彙在一篇文章中出現的次數，DF則為該詞彙出現在幾篇文章中，<img alt="$n_d$" src="svgs/582aa6dfd54d1324fd2f305f5634176b.png?invert_in_darkmode" align="middle" width="16.64751pt" height="14.102549999999994pt"/>為文章總數，因此TF-IDF可以由下列公式計算:  
@@ -54,17 +57,19 @@
 #### Part-of-speech Tagging
 我們認為一句話出現的各詞性數量，一定程度上反映了這句話的意義，比如若問題是「你要去哪裡」，那答案中可以預期會出現一個地名。jieba本身就有提供詞性標注的功能，支援ICTCLAS這個詞性標注集([ICTCLAS的詞性分類]( https://gist.github.com/luw2007/6016931))，可以同時進行斷句與詞性標注。除了一般認知的名詞、動詞外，可以往下細分成人名、地名、動詞、副動詞等等較精細的分類，缺點是Jieba只會根據字典中的預設的詞性來標注，對於中文裡約四分之一的多詞性詞彙無法進一步處理，不過一句話不會同時出現太多這種詞彙，因此影響較小。 範例程式：
 
-<img src="images/POS.PNG">
+<p align="center"><img src="images/POS.PNG"></p>
 
 <a id='Dependency-Parsing'></a>
 #### Dependency Parsing
 Dependency parsing可以找出一句話之中，兩兩詞彙之間的關係，一句話的意思不能完全以出現了哪些字來判斷，若能知道這句話的文法架構，詞彙間的主從關係，便能得知這句話想表達的重點為何，例如「我愛你」和「你愛我」的意思並不相同，雖然有出現的詞彙一模一樣。Stanford提供一系列完善的java .jar檔，功能包含tokenization、tagging、parsing等等，我們使用python的wrapper StanfordDependencyParser來為training data標注詞彙關係，詳細的標注方式可以參考Stanford的[論文](https://nlp.stanford.edu/pubs/ssst09-chang.pdf)。  
 
 **圖形化介面：**
-<img src="images/DP2.PNG">
+
+<p align="center"><img src="images/DP2.PNG"></p>
   
 **實際使用範例：**
-<img src="images/DP.PNG">
+
+<p align="center"><img src="images/DP.PNG"></p>
 
 <a id='Hand-picked-Keywords'></a>
 #### Hand-picked Keywords
@@ -74,10 +79,13 @@ Dependency parsing可以找出一句話之中，兩兩詞彙之間的關係，�
 #### Word2Vec
 我們大量使用了gensim，這一套用於topic modeling的python package，來幫我們產生不少features，在有安裝cython的情況下，更可利用C compiler來加速其training的速度。
 word2vec基本上是一個兩層的fully connected network，根據演算法可以細分為CBOW和skip-gram，前者是由上下文來預測缺漏的詞語，後者則由當前詞語來預測前後文的內容。將所有的文件作為training data，word2vec model就可以推斷出詞與詞之間的相關性，training完的hidden layer就成為每個詞彙對應的向量，而越相近的詞語的產生出的向量就會越接近，彼此之間甚至可以有加減法的關係，最後我們使用vector長度400和window大小13作為model的參數，就能產生如下列有趣的例子：
-<img src="images/Word2Vec.PNG">
+
+<p align="center"><img src="images/Word2Vec.PNG"></p>
+
 <a id='Doc2Vec'></a>
 #### Doc2Vec
 doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個句子一個paragraph ID，理論上也是根據兩種演算法: Distributed Memory(DM) 和 Distributed Bag of Words(DBOW)，前者是再給定上下文以及paragraph ID去預測詞語的機率，後者則是給定paragraph ID後，去預測詞語的機率；我們本來想透過train好的doc2vec model，以most_similar找出與question最相近的前幾個句子，取得這些句子的下一句vector後，便能透過knn或平均相似度的方式來找出options中哪個答案最有可能，不過我們發現doc2vec不但要train比較久，找出來的句子以肉眼觀察也沒什麼相關性。如下圖所示：
+
 <img src="images/Doc2Vec.PNG">
 
 [Back to Top](#Top)
@@ -116,7 +124,8 @@ doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個
 4.	使用以上幾種選法，不過改變training data的數量
 
 **比較相似度的程式碼片段:**
-<img src="images/DocSim.PNG">
+
+<p align="center"><img src="images/DocSim.PNG"></p>
 
 由上述結果發現與testing data最相似的是program 7，然而試過所有前述方式後，我們發現各個表現都差不多，即使用更多的資料來進行training精準度也不一定較高，我們認為可能是因為dataset中的noise過多，導致增加data無法提供model更多的資訊；也有可能是我們使用的model capacity不夠，改用NN類的方式可能會有更好的結果。
 
@@ -125,6 +134,7 @@ doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個
 <a id='Feature-Selection'></a>
 ### Feature Selection
 雖然前面列了許多我們想到的features，但最後我們發現Doc2Vec效果並不如Word2Vec，而Dependency Parsing又須要花大量時間才能產生所有feature，最後我們來不及嘗試，所以實際training僅有使用其他features。
+
 <a id='TF-IDF_S'></a>
 #### TF-IDF
 我們使用scikit-learn中的TfidfVectorizer，針對每一個episode與testing data，以句子作為document的單位，來計算詞彙的TF-IDF vector，並選取前30個最重要的詞彙作為feature。若我們直接拿testing data的question與options進行cos similarity的比較，其實就能達到45%的精準度，不過我們發現，若將前後句的TF-IDF vector進行內積，轉換成一個一維的feature，加上其他features後可以透過training的方式再提升精準度。
@@ -135,14 +145,17 @@ doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個
 #### Part-of-speech Tagging
 由於ICTCLAS全部的詞性多達五十幾個，很多過細的分類其實是不必要的，我們將相近的詞性分在一起，最後選出11大類，第12類u(unknown)則代表無法被分到前面任一組別的詞性，對應方式如下表所示，sub-POS都會被歸類到其上方的類型一起統計。
 
-<img src="images/TABLE1.PNG" width="600">
+<p align="center"><img src="images/TABLE1.PNG" width="600"></p>
 
 我們以每個詞性出現的次數來當作一個句子的feature，並透過課程中教過的方式，使用Lasso來選出最有用features，從下圖中可以看到，當alpha=0.05時，除了第0個feature是TF-IDF外，可以選出第3, 7, 10, 11，分別對應n, r, u, v等詞性，作為最後使用的features。
-<img src="images/LASSO1.PNG">
+
+<p align="center"><img src="images/LASSO1.PNG"></p>
+
 <a id='Hand-picked-Keywords_S'></a>
 #### Hand-picked Keywords
 使用方式和POS Tagging大同小異，差別我們選取的主要是Question的關鍵字，因此只須把前一句的features放進來train，而不需要將前後兩句都放進來。根據下圖LASSO的結果，我們選擇了第3, 4, 9, 11，分別對應「呢」、「什麼」、「不」、「沒」等字的出現字數。
-<img src="images/LASSO2.PNG">
+
+<p align="center"><img src="images/LASSO2.PNG"></p>
 
 **我們最後使用的features**
 
@@ -167,7 +180,9 @@ doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個
 ### Result
 **Traditional Classification**  
 不斷測試後發現Random Forest不但跑得速度比較快，精準不也不會比SVM(rbf)等其他model差，因此我們主要以它來進行實驗。透過調整RandomForestClassifier 的min_samples_split參數，我們可以設定每個leave上至小於幾個資料點時，就必須停止分支下去，數值越大就代表分得越粗糙，overfitting的可能性就越小，調整此hyperparameter我們可以得到以下圖表，其中x軸的值必須乘上<img alt="$10^{-3}$" src="svgs/7478f3ddcc5c4a0d602772a3057efe42.png?invert_in_darkmode" align="middle" width="33.140744999999995pt" height="26.70657pt"/>：
-<img src="images/TrainVal.PNG">
+
+<p align="center"><img src="images/TrainVal.PNG"></p>
+	
 可以發現折線圖的表現和我們預期中一模一樣，但無論我們怎麼調整min_samples_split比例，現在最後testing data上的表現都並非嚴格遞增或遞減，而是有點隨機的現象，因此我們無法由Error Curve來進行model的選擇。由於這次的testing set大家都能隨時測試，所以變成我們只能根據public data來調整參數，但風險就是overfitting的機率非常高，最後我們靠此model可以達到48%的準確度。  
 
 **word2vec Comparison**  
