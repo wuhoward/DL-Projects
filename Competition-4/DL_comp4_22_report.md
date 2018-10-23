@@ -74,7 +74,7 @@
 <a id='Introduction'></a>
 **Introduction**  
 Skip-Thought是一種Unsupervised的模型，主要概念是將word2vec中的Skip-gram模型從Word Level提升到Sentence Level，也就是由當前的句子，去預測上下文，架構上由1個Encoder與2個Decoder組成，一個負責生成上句，一個負責生成下句，以GRU Cell作為基本組成單位。  
-由於Pretraining時建立的Vocabulary可能不夠大，舉例來說，Flower Dataset裡面的Captions，很可能就不會出現在[BookCorpus](http://yknzhu.wixsite.com/mbweb)中，因此作者提出Vocabulary Expansion的方法，假設有一個Train好的word2vec，我們以$V_{w2v}$來表示word2vec的Word Embedding Space，以$V_rnn$表示RNN模型的Embedding Space，$V_{w2v}$遠大於$V_rnn$，Vocabulary Expansion的目的即在找到一個W，能使$v’=Wv\;\mbox{for}\;v’\in V_rnn，v\in V_w2v$，便可以把那些沒出現在Vocabulary的單字，轉換成對應的Embedding。  
+由於Pretraining時建立的Vocabulary可能不夠大，舉例來說，Flower Dataset裡面的Captions，很可能就不會出現在[BookCorpus](http://yknzhu.wixsite.com/mbweb)中，因此作者提出Vocabulary Expansion的方法，假設有一個Train好的word2vec，我們以$V_{w2v}$來表示word2vec的Word Embedding Space，以$V_{rnn}$表示RNN模型的Embedding Space，$V_{w2v}$遠大於$V_{rnn}$，Vocabulary Expansion的目的即在找到一個W，能使$v’=Wv\;\mbox{for}\;v’\in V_{rnn}\;\mbox{and}\;v\in V_{w2v}$，便可以把那些沒出現在Vocabulary的單字，轉換成對應的Embedding。  
 
 <a id='Text-to-Skip-Thought-Conversion'></a>
 **Text to Skip-Thought Conversion**  
@@ -166,17 +166,17 @@ Downsampling的部分我們將Target圖片餵入4層Convolutional Layers with St
 
 <a id='Evaluation'></a>
 #### Evaluation
-Inception score是一種用來評量GAN產生圖片質量的方式，主要利用在Imagenet上Pretrain好的Inception Network來進行衡量，一個好的結果應有兩種特性:對一張圖所有Label的Entropy$H(y|x)$低，代表產生出來的圖很明確屬於某一個類別，代表越接近真實的圖片，而非一張完全不像任何東西，或一張由各種類別融合在一起的模糊圖片；對所有圖片的的Entropy$H(y)$高，代表所有圖片的多樣性大，沒有Mode Collapse的現象發生，我們希望在不同的Caption底下每張圖都應該是不盡相同的，就算Caption很接近，給定不同的初始Noise也應該有不同的圖片被產生。於是Inception score的算式如下:  
+Inception score是一種用來評量GAN產生圖片質量的方式，主要利用在Imagenet上Pretrain好的Inception Network來進行衡量，一個好的結果應有兩種特性:對一張圖所有Label的Entropy $\mathrm{H}(y|x)$低，代表產生出來的圖很明確屬於某一個類別，代表越接近真實的圖片，而非一張完全不像任何東西，或一張由各種類別融合在一起的模糊圖片；對所有圖片的Entropy $\mathrm{H}(y)$高，代表所有圖片的多樣性大，沒有Mode Collapse的現象發生，我們希望在不同的Caption底下每張圖都應該是不盡相同的，就算Caption很接近，給定不同的初始Noise也應該有不同的圖片被產生。於是Inception score的算式如下:  
 
-$$Inception\; Score = exp(\mathbb{E}_x[\mathrm{KL}(\mathit{p}(\mathcal{y|x})\|\mathit{p}(y))])$$
+$$\mathrm{Inception\;Score = exp}(\mathbb{E}_x\mathrm{KL}(p(y|x)\|p(y)))$$
 
 將算式展開後我們可以得到:
     
-$$\sum_x\sum_yP(y|x)logP(y|x) - \sum_x\sum_yP(y|x)logP(y) $$
+$$\sum_x\sum_yp(y|x) \log p(y|x) - \sum_x\sum_yp(y|x) \log p(y) $$
 
-前項是Negative Entropy of P(y|x)，我們希望越大越好;後項是Cross Entropy of P(y)，我們希望越小越好,所以整體上Inception Score越大表示結果越好。  
+前項是Negative Entropy of $p(y|x)$，我們希望越大越好;後項是Cross Entropy of $p(y)$，我們希望越小越好,所以整體上Inception Score越大表示結果越好。  
 
-但實際上根據助教使用的程式碼，我們的理解是將圖片餵進VGG16，產生出來的Logits作為圖片的一種向量表示，使用Cosine Distance來計算產生結果和Ground Truth之間的差異，所以可以想像成Inception Score的$H(y|x)$，只不過越低越好；而另外計算所有圖片之間的Standard Deviation用來代替$H(y)$，取倒數之後也是越低越好。
+但實際上根據助教使用的程式碼，我們的理解是將圖片餵進VGG16，產生出來的Logits作為圖片的一種向量表示，使用Cosine Distance來計算產生結果和Ground Truth之間的差異，所以可以想像成Inception Score的$\mathrm{H}(y|x)$，只不過越低越好；而另外計算所有圖片之間的Standard Deviation用來代替$\mathrm{H}(y)$，取倒數之後也是越低越好。
 
 [Back to Top](#Top)
 
