@@ -47,10 +47,12 @@
 我們使用了其中102739張圖片，我們先稍微觀察了一下句子長度數據分布，可以看出句子長度主要都集中在8~10左右，觀察每個句子的格式，可以發現幾乎都由名詞起頭，前面通常還會加個不定冠詞a或an；針對一張圖的5個句子，出現的名詞順序有可能不同，但有出現的名詞幾乎都是一樣的，雖然有時同類物品會被標注成集合名詞如food或furniture等等，有人在內的圖片看起來是最多的。
 
 <p align="center"><img src="images/Word_Count.png" width="400"></p>
+
 [Back to Top](#Top)
 
 <a id='Preprocessing'></a>
 ### Preprocessing
+
 <a id='Image'></a>
 #### Image
 1. Center-Cropping
@@ -69,11 +71,11 @@
 
 <a id='Network-Architecture'></a>
 ### Network Architecture
+
 <a id='RNN-Cell'></a>
 ### RNN Cell
 我們使用Tensorflow的BasicLSTMCell作為我們基本的構成元件，並使用DropoutWrapper，它會在每個Cell的Input、Output、H State Output加上Dropout。  
 為了增加我們架構的Capacity，我們有使用MultiRNNCell來增加Layers數量，但比較麻煩的是由於LSTM本身回傳的State為LSTMStateTuple，加了MultiRNNCell後回傳的值變為Tuple of LSTMStateTuple，例如三層的State Tuple: (LSTM(c, h), LSTM(c, h), LSTM(c, h))，因此分成一個個Steps執行時要先將每筆Data的所有States串接起來，處理比較方便，處理完則得拆成原本的格式以餵入下一個Time Step。
-
 
 ```python
 def get_a_cell():
@@ -87,13 +89,14 @@ rnn_cell = tf.contrib.rnn.MultiRNNCell([get_a_cell() for _ in range(self.hps.rnn
 <a id='Attention-Layer'></a>
 ### Attention Layer
 我們參考[Show, Attend and Tell](https://arxiv.org/pdf/1502.03044.pdf)的架構(下圖)來實作一個簡化版本的Attention機制。
+
 <img src="images/Attention.PNG" width="800">  
+
 由於我們使用的圖片輸入並非原文中未壓縮前的整層Feature，而是經過PCA壓縮過的一維向量，所以無法直接移植過來，我們的Attention機制如下：將最後一層LSTM的H State和圖片Feature f，各自傳過一層Affine Layer後的結果相加，經過ReLU和另一層Affine Layer即可透過Softmax得到如上圖的a1。原文中a1會作為權重，將每個圖片位置的256作Weighted Sum，我們則將a1視為每個Feature的重要倍率，計算a1和Feature的Element-wise Product，即可得到這個Time Step的Context向量z1，公式如下：
 <p align="center"><img alt="$$&#10;a_t = W_{attn}\cdot\max(0,W_f\cdot{f}+W_h\cdot{h_{t-1}})\\&#10;z_t = f \odot a_t&#10;$$" src="svgs/4fa9e953d6817888dc1ac1daac0d2b47.png?invert_in_darkmode" align="middle" width="360.76259999999996pt" height="16.97751pt"/></p>
 
 將Context和原本的Text Input串接起來，就得到下一個Step的輸入，也因此我們的RNN Units數變為原本兩倍512，產生initial_state時要將原本256d的Feature擴展成512d，我們嘗試了兩種方法：Zero Padding和再插入一層Affine Layer。 
 另外我們省略了部分原文中的架構，原文在預測下個文字時其實有透過一層[Deep Output Layer](https://arxiv.org/abs/1312.6026)來綜合h, z, y的資訊，我們只用到h；原文對a有進行Doubly Stochastic Regularization，a本身是經過Softmax的output，因此各項之合本來就為1，加上這種Regularization能讓a中每個位置，對於所有Steps上加起來也盡量靠近1，如此可以讓模型平均的關注圖中每個位置，不過我們來不及實作此部分。  
-
 
 ```python
 t = tf.constant(0) #loop index
@@ -129,20 +132,23 @@ t, state, outputs = tf.while_loop(cond, body, [t, state, outputs])
 ```
 
 [Back to Top](#Top)
+
 <a id='RNN-Techniques'></a>
 ### RNN Techniques
+
 <a id='Gradient-Clipping'></a>
 #### Gradient Clipping
 RNN採用Backpropagation Through Time， Unroll後相當於在Train一個相當深的網路，因此特別容易產生Gradient Vanishing或Exploding的現象，因此我們必須限制Gradient的範圍以減緩此問題。  
 Tensorflow提供的Clipping方式主要有以下幾種:clip_by_value, clip_by_norm, clip_by_average_norm, clip_by_global_norm，clip_by_value會把一個Tensor中過大或過小的數值限縮到指定的範圍內，但這樣同個Tensor中每個元素的比例就失真了；剩下三種方式都是針對整個Tensor進行縮放，所以不會有剛剛的問題，clip_by_norm和clip_by_average_norm分別會把一個Tensor的L2-norm限定在一定的範圍，後者還會再除以整個Tensor的元素個數，這兩種方法仍會造成每個Tensor縮放的程度不一，因此我們最後選用clip_by_global_norm，會計算給定List中所有Tensors的L2-norm才進行縮放。
+
 <a id='Curriculum-Learning'></a>
 #### Curriculum Learning
 如同人類的學習一樣，讓模型從簡單的資料開始學起也能有更好的效果，比如這次的Caption開頭幾乎都是a或an，變化性並不高，因此若一開始就將整個句子輸入，可能會讓模型失焦無法發現這個資料的模式。我們只須增加一個Placeholder，來控制dynamic_rnn的sequence_length參數，就可以限制RNN跑的Step數。最後實驗發現從2開始，每個Epoch把sequence_length增加1效果最顯著，比每兩個Epoches才加1要好。
+
 <a id='Beam-Search'></a>
 #### Beam Search
 於Test Time生成句子時，若我們單純只選出現機率最高的單字作為預測目標，很容易因為一些Noise，導致預測錯一個字間接影響到整個產生的句子，因此我們必須每次機率前幾高的單字都納入考慮。假設每個字都產生3種可能的Successors，如此生成長度n的句子複雜度就變成<img alt="$3_n$" src="svgs/3621d2435677e45f7ff0d1cda896d168.png?invert_in_darkmode" align="middle" width="16.28418pt" height="21.10812pt"/>，因此實際上在每個Step，只須保留機率最高的前幾名句子，並把它們繼續餵入模型產生下個單字。  
 實作上我們使用Python的PriorityQueue來記錄機率最大的句子，儲存的格式為(priority_number, data)，我們從Queue 1不斷取出當前機率最高的句子，每算完一個Step，就會更新每個句子的機率，並把新的句子加入Queue 2中，再從Queue 2找出機率最高的新句子Push回Queue 1，不斷重複此動作。由於我們把機率視為priority_number，而PriorityQueue預設會先取出priority_number較小的值，但在Pop Queue 2時須取出機率較大者，因此我們儲存的值其實是負的機率。
-
 
 ```python
 prev_queue = Q.PriorityQueue() #Queue 1
@@ -184,6 +190,7 @@ final_prob, final_word, final_state = prev_queue.get()
 
 <a id='Experiments'></a>
 ### Experiment
+
 <a id='Setup'></a>
 #### Setup
 
@@ -210,6 +217,7 @@ CIDEr-D是根據CIDEr更進一步改進的Metric，主要是給Predict出來長�
 
 <a id='Result'></a>
 ### Result
+
 <a id='Choice-of-Cell'></a>
 #### Choice of Cell
 1. **BasicLSTMCell:** Baseline
@@ -219,6 +227,7 @@ CIDEr-D是根據CIDEr更進一步改進的Metric，主要是給Predict出來長�
 5. **HighwayWrapper:** 類似於ResidualWrapper，不過是將Input和Output各自經過一層Affine Layer之後再相加，速度非常慢。
 
 **RNN, LSTM & GRU**
+
 <img src="images/RNNs.jpg">
 
 <a id='Incremental-Test'></a>
@@ -267,13 +276,19 @@ CIDEr-D是根據CIDEr更進一步改進的Metric，主要是給Predict出來長�
 </div>
 
 [Back to Top](#Top)
+
 <a id='Arbitrary-Images'></a>
 ### Arbitrary Images
 #### 清境農場
+
 <img src="images/Sheep_Cap.PNG">
+
 #### Taylor Swift
+
 <img src="images/Taylor_Cap.PNG">
+
 #### Star Wars
+
 <img src="images/Star_Wars_Cap.png">
 
 我們從網路上找了2張內容跟Training Dataset比較有關的圖，效果都不差；另外也找了張科幻片海報，在Training Dataset裡應該完全沒有這類圖片，結果也如預期出現了一句在Testing結果滿常看到的句型，語意卻完全不對。  
@@ -282,11 +297,13 @@ CIDEr-D是根據CIDEr更進一步改進的Metric，主要是給Predict出來長�
 <a id='Beam-Search-Tuning'></a>
 ### Beam Search Tuning
 在我們最佳的架構下調整各種Beam Size，和每個Step保留幾個句子的Queue Size大小，最後做出來的圖表如下。我們意外發現Queue Size越大準確度幾乎都是越低，代表我們若儲存太多句子，可能發生下列情況:假設句子1三個字的機率分別為0.8, 0.8, 0.8，句子2為0.7, 0.8 ,1，卻因為句子二後兩個字彼此相關性高導致我們選擇第二句，因此我在想我們之前都用Queue Size 5不太正確，也有可能是使用演算法不完整；從Beam Size來看，3或4是較好的選擇，而3需要花的時間又較少，因此是最好的選擇。
+
 <p align="center"><img src="images/Beam_Search.png" width="600"></p>
 
 <a id='Loss-Curve'></a>
 ### Loss Curve
 所有的線都使用Batch Size 256，Train 100個Epochs，藍線分別使用1層與2層Layers，可以看出越多Layer收斂越快，最後Loss也降低，雖然兩者Loss的降低速率到後面都趨於平緩，但繼續Train其實對提升CIDEr-d分數仍有幫助；粉紅線為使用LayerNormBasicLSTMCell，Loss Curve和原本沒什麼差別。
+
 <p align="center"><img src="images/Loss_Layers.png" width="600"></p> 
 <p align="center"><img src="images/Loss_Norm.PNG" width="600"></p>
 
