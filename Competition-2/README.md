@@ -1,7 +1,8 @@
 
 <center><h1><span style="color: #f2cf4a; font-size: 1.2em; line-height:40px">CS565600 Deep Learning<br/>DataLab Cup 2: CNN Object Detection</span></h1></center>
-<center><h3>Team22: SkyNet Zero&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Members: 105062635 吳浩寧 105062514 張嘉宏</h3></center>
+<center><h3>Team22: SkyNet Zero&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</h3></center>
 <a id='Top'></a>
+
 ### Table of Contents
 
 * [Problem Description](#Problem-Description)
@@ -58,6 +59,7 @@
 <a id='First-Thought'></a>
 ### First Thought
 根據[Speed/accuracy trade-offs for modern convolutional object detectors](https://arxiv.org/pdf/1611.10012.pdf)中的比較圖，我們可以發現Faster RCNN算是比較精確的模型，相較於其他比較新的架構如SSD、YOLO雖然速度快許多但精確度並不一定較高。而由於這次作業已經預先提供許多Regions of Interest (RoIs)，等於不一定要使用End-to-End的架構，因此最後我們選擇使用較簡單，精確度理論上又不會太低的[Fast RCNN](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/Girshick_Fast_R-CNN_ICCV_2015_paper.pdf)來實作。
+
 <img src="images/Acc_Time.png" width="600">
 
 [Back to Top](#Top)
@@ -136,6 +138,7 @@ Labels (106,):
 ### RoI Pooling
 Fast RCNN把VGG16中第5次的Max Pooling拿掉，取代為RoI Pooling，因此我們的Feature Map大小縮小了<img alt="$2^4$" src="svgs/812eddc94b3c44a52699e8da08d64dd6.png?invert_in_darkmode" align="middle" width="14.716680000000002pt" height="26.70657pt"/>倍。RoI Pooling會從Feature Map中選取RoI在原圖中等比例縮放後的區域，再將該區域平均分割成<img alt="$H_C×W_C$" src="svgs/3e6ee8d4bb3b91432656ba1a7d7b581c.png?invert_in_darkmode" align="middle" width="50.33325pt" height="22.381919999999983pt"/>塊區域(我們使用7×7)，最後只保留每塊區域中最大的值。利如下圖即為<img alt="$H_C×W_C$" src="svgs/3e6ee8d4bb3b91432656ba1a7d7b581c.png?invert_in_darkmode" align="middle" width="50.33325pt" height="22.381919999999983pt"/>各種大小的情況：
 <img src="images/RoI_Pooling.png" width="600">
+
 這裡我們有兩種實作方法，一是採用別人寫好的[Roi Pooling Operation](https://github.com/deepsense-ai/roi-pooling)，另外也可以使用tf.image.crop_and_resize，但後者比較不一樣的地方是Resize選取區塊後的每個像素，是由Bilinear Interpolation的方式來取得，感覺和Mask RCNN的RoIAlign方法比較像；兩者輸出Tensor的Dimension順序也不太一樣，假設原本Input大小為<img alt="$N×H×W×C$" src="svgs/d45d5a0ac5aa536b330c4c0911a41e8a.png?invert_in_darkmode" align="middle" width="60.52612500000001pt" height="22.381919999999983pt"/>，我們總共有R個RoIs ，Roi Pooling的輸出是<img alt="$R×C×H_C×W_C$" src="svgs/215133d367e2650326e959bd3abc9572.png?invert_in_darkmode" align="middle" width="75.775755pt" height="22.381919999999983pt"/>，crop_and_resize則是<img alt="$R×H_C×W_C×C$" src="svgs/81a301b3b8f6cf11ec63ca21b9bcbe3e.png?invert_in_darkmode" align="middle" width="76.63161000000001pt" height="22.381919999999983pt"/>。
 
 <a id='Loss-Computation'></a>
