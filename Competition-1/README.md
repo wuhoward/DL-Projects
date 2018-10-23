@@ -47,8 +47,8 @@
 ### Feature Engineering
 <a id='TF-IDF'></a>
 #### TF-IDF
-相較於最基本的Bag-of-Words僅計算每個詞彙出現的次數，TF-IDF考慮了每個詞彙出現在所有文件中的頻率，因此直覺上更能反映每個詞彙的重要性。在scikit-learn中，TF-IDF的定義如下：TF為一詞彙在一篇文章中出現的次數，DF則為該詞彙出現在幾篇文章中，<img src="svgs/582aa6dfd54d1324fd2f305f5634176b.svg?invert_in_darkmode" align=middle width=16.64751pt height=14.102549999999994pt/>為文章總數，因此TF-IDF可以由下列公式計算:  
-<img src="svgs/497b833ea487332ebaf24f9fc14ce721.svg?invert_in_darkmode" align=middle width=208.197495pt height=28.456229999999977pt/>
+相較於最基本的Bag-of-Words僅計算每個詞彙出現的次數，TF-IDF考慮了每個詞彙出現在所有文件中的頻率，因此直覺上更能反映每個詞彙的重要性。在scikit-learn中，TF-IDF的定義如下：TF為一詞彙在一篇文章中出現的次數，DF則為該詞彙出現在幾篇文章中，<img alt="$n_d$" src="svgs/582aa6dfd54d1324fd2f305f5634176b.png?invert_in_darkmode" align="middle" width="16.64751pt" height="14.102549999999994pt"/>為文章總數，因此TF-IDF可以由下列公式計算:  
+<img alt="$TF\textrm{-}IDF_t=TF_t\cdot\log{\frac{1+n_d}{1+DF_{t, d}}}$" src="svgs/497b833ea487332ebaf24f9fc14ce721.png?invert_in_darkmode" align="middle" width="208.197495pt" height="28.456229999999977pt"/>
 
 <a id='Part-of-speech-Tagging'></a>
 #### Part-of-speech Tagging
@@ -166,7 +166,7 @@ doc2vec是以word2vec為基礎的方法，再training的時候需要多給每個
 <a id='Result'></a>
 ### Result
 **Traditional Classification**  
-不斷測試後發現Random Forest不但跑得速度比較快，精準不也不會比SVM(rbf)等其他model差，因此我們主要以它來進行實驗。透過調整RandomForestClassifier 的min_samples_split參數，我們可以設定每個leave上至小於幾個資料點時，就必須停止分支下去，數值越大就代表分得越粗糙，overfitting的可能性就越小，調整此hyperparameter我們可以得到以下圖表，其中x軸的值必須乘上<img src="svgs/7478f3ddcc5c4a0d602772a3057efe42.svg?invert_in_darkmode" align=middle width=33.140744999999995pt height=26.70657pt/>：
+不斷測試後發現Random Forest不但跑得速度比較快，精準不也不會比SVM(rbf)等其他model差，因此我們主要以它來進行實驗。透過調整RandomForestClassifier 的min_samples_split參數，我們可以設定每個leave上至小於幾個資料點時，就必須停止分支下去，數值越大就代表分得越粗糙，overfitting的可能性就越小，調整此hyperparameter我們可以得到以下圖表，其中x軸的值必須乘上<img alt="$10^{-3}$" src="svgs/7478f3ddcc5c4a0d602772a3057efe42.png?invert_in_darkmode" align="middle" width="33.140744999999995pt" height="26.70657pt"/>：
 <img src="images/TrainVal.PNG">
 可以發現折線圖的表現和我們預期中一模一樣，但無論我們怎麼調整min_samples_split比例，現在最後testing data上的表現都並非嚴格遞增或遞減，而是有點隨機的現象，因此我們無法由Error Curve來進行model的選擇。由於這次的testing set大家都能隨時測試，所以變成我們只能根據public data來調整參數，但風險就是overfitting的機率非常高，最後我們靠此model可以達到48%的準確度。  
 
