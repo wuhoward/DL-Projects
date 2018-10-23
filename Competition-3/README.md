@@ -1,7 +1,8 @@
 
 <center><h1><span style="color: #f2cf4a; font-size: 1.2em; line-height:40px">CS565600 Deep Learning<br/>DataLab Cup 3: Image Caption</span></h1></center>
-<center><h3>Team22: SkyNet Zero&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Members: 105062635 吳浩寧 105062514 張嘉宏</h3></center>
+<center><h3>Team22: SkyNet Zero&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</h3></center>
 <a id='Top'></a>
+
 ### Table of Contents
 
 * [Problem Description](#Problem-Description)
@@ -44,7 +45,8 @@
 ### Data Exploration
 我們使用的是Microsoft COCO 2014的dataset，物體可以大致分為以下12大類：Outdoor, Food, Indoor, Appliance, Sports, Person, Animal, Vehicle, Furniture, Accessory, Electronic, Kitchen。由於描述一張圖片有很多種方法，因此我們需要每張圖已經標示好的5句話作為我們的Ground Truth Labels，每句話和圖片組合起來就是一筆Data。  
 我們使用了其中102739張圖片，我們先稍微觀察了一下句子長度數據分布，可以看出句子長度主要都集中在8~10左右，觀察每個句子的格式，可以發現幾乎都由名詞起頭，前面通常還會加個不定冠詞a或an；針對一張圖的5個句子，出現的名詞順序有可能不同，但有出現的名詞幾乎都是一樣的，雖然有時同類物品會被標注成集合名詞如food或furniture等等，有人在內的圖片看起來是最多的。
-<img src="images/Word_Count.png" width="400">
+
+<p align="center"><img src="images/Word_Count.png" width="400"></p>
 [Back to Top](#Top)
 
 <a id='Preprocessing'></a>
@@ -280,13 +282,13 @@ CIDEr-D是根據CIDEr更進一步改進的Metric，主要是給Predict出來長�
 <a id='Beam-Search-Tuning'></a>
 ### Beam Search Tuning
 在我們最佳的架構下調整各種Beam Size，和每個Step保留幾個句子的Queue Size大小，最後做出來的圖表如下。我們意外發現Queue Size越大準確度幾乎都是越低，代表我們若儲存太多句子，可能發生下列情況:假設句子1三個字的機率分別為0.8, 0.8, 0.8，句子2為0.7, 0.8 ,1，卻因為句子二後兩個字彼此相關性高導致我們選擇第二句，因此我在想我們之前都用Queue Size 5不太正確，也有可能是使用演算法不完整；從Beam Size來看，3或4是較好的選擇，而3需要花的時間又較少，因此是最好的選擇。
-<img src="images/Beam_Search.png">
+<p align="center"><img src="images/Beam_Search.png" width="600"></p>
 
 <a id='Loss-Curve'></a>
 ### Loss Curve
 所有的線都使用Batch Size 256，Train 100個Epochs，藍線分別使用1層與2層Layers，可以看出越多Layer收斂越快，最後Loss也降低，雖然兩者Loss的降低速率到後面都趨於平緩，但繼續Train其實對提升CIDEr-d分數仍有幫助；粉紅線為使用LayerNormBasicLSTMCell，Loss Curve和原本沒什麼差別。
-<img src="images/Loss_Layers.png">  
-<img src="images/Loss_Norm.PNG">
+<p align="center"><img src="images/Loss_Layers.png" width="600"></p> 
+<p align="center"><img src="images/Loss_Norm.PNG" width="600"></p>
 
 
 <a id='Conclusion'></a>
