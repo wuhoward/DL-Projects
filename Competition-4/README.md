@@ -9,7 +9,6 @@
 * [Source Code Description](#Source-Code-Description)
 * [Preprocessing](#Preprocessing)
     * [Image](#Image)
-    * [Raw Text](#Raw-Text)
     * [Skip-Thought Vectors](#Skip-Thought-Vectors)
         * [Introduction](#Introduction)
         * [Text to Skip-Thought Conversion](#Text-to-Skip-Thought-Conversion)
@@ -41,68 +40,65 @@
 
 <a id='Problem-Description'></a>
 ### Problem Description
-這次我們要讓使用者給出的一段文字描述花的型態，並根據這串文字產生符合描述的64×64圖片。我們使用Oxford-102 Flower Dataset，裡面有[102種](http://www.robots.ox.ac.uk/~vgg/data/flowers/102/categories.html)不同的花，每種花各有10組對應的文字來描述，文字內容為花的每個部位特徵，包括顏色、形狀、大小、紋路、相對位置等等，我們以[StackGAN](https://github.com/hanzhanggit/StackGAN)作為參考來實作。
+Given a description of flowers. Our goal is to generate suitable 64×64 images according to the specified colors and shapes. We trained [StackGAN](https://github.com/hanzhanggit/StackGAN) on Oxford-102 Flower Dataset, which contains [102 categories](http://www.robots.ox.ac.uk/~vgg/data/flowers/102/categories.html) of flowers. Each flower comes along with ten captions describing its colors, shapes, size, texture, and positions of floral organs.
 
 <a id='Source-Code-Description'></a>
 ### Source Code Description
-* DL_comp4_22_report.ipynb: Report檔
-* DL_comp4_22_report.html: 建議助教閱讀此檔!!! 圖片好像有時怪怪的...
-* Main.ipynb: 拿來讀取資料、資料處理、Training、Testing與各種主要的功能
-* seq2seq.ipynb: 將Captions透過seq2seq轉換成產生Sentence Embedding
-* Preprocessing.ipynb: 產生Training和Testing所需的Captions
-* train_captions.txt: 經自行Preprocessing後產生的所有Training Captions
-* test_captions.txt: 經自行Preprocessing後產生的所有Testing Captions
-* images/: 存放圖片
+* DL_comp4_22_report.md: My report
+* DL_comp4_22_report.html: Report in html
+* Main.ipynb: Training data retrieval, data preprocessing, Training, Testing, etc
+* seq2seq.ipynb: Converting captions to sentence embedding with seq2seq
+* Preprocessing.ipynb: Generating training and Testing captions in desirable format
+* train_captions.txt: Generated training captions
+* test_captions.txt: Generated testing captions
+* images/: Images used in this report
+* images/: Equations used in this report
 
 <a id='Preprocessing'></a>
 ### Preprocessing
 
 <a id='Image'></a>
 #### Image
-我們以原論文為基礎稍加修改，由於花的本體大多分布在圖片中間，因此我們將圖片的長邊兩側裁切掉，只保留中間的一個正方形，以避免圖片縮放後比例失真，完整的Preprocessing流程如下：  
+The raw image sizes vary. Simply resizing the images to squares may alter the original aspect ratio. Fortunately, the flower itself usually locates in the center of the image, so we crop the longer side of the original image. Then do the reshaping. Take the original paper as reference, we modified our preprocessing flow as follows:
+
 1.	Central cropping to a square with side length equals to the shorter side of the original image by **tf.image.resize_image_with_crop_or_pad**
 2.	Scaling each sides to 76/64 times as big as the target image’s length of sides
 3.	Random flipping horizontally by **tf.image.random_flip_left_right**
 4.	Random cropping to target image size by **tf.random_crop**
 5.	Normalizing each pixel to \[-1, 1\]
 
-
-<a id='Raw-Text'></a>
-#### Raw Text
-我們自己下載原始的文字敘述來使用，由於原始檔案會根據圖片所屬的Class來擺置資料夾，因此我們先將所有*.txt丟到同個資料夾，再依助教提供的Dataframe中圖片順序串接成單一個train_captions.txt檔；Testing Data的部分，我們必須先把助教提供的單字ID轉換為文字，但原始的文字已先經過nltk處理，只保留字根的，為了找到每個下載的.txt檔中哪個句子才是助教指定的，我們把每個句子轉換成保留單字字首的格式：例如：this flower has petals that are white with a small stigma→tfhptawwass，比較這個字串就能找出相同的句子，最後將所有Testing Data也串成一個test_captions.txt。
-
 <a id='Skip-Thought-Vectors'></a>
 #### Skip-Thought Vectors
 
 <a id='Introduction'></a>
 **Introduction**  
-Skip-Thought是一種Unsupervised的模型，主要概念是將word2vec中的Skip-gram模型從Word Level提升到Sentence Level，也就是由當前的句子，去預測上下文，架構上由1個Encoder與2個Decoder組成，一個負責生成上句，一個負責生成下句，以GRU Cell作為基本組成單位。  
-由於Pretraining時建立的Vocabulary可能不夠大，舉例來說，Flower Dataset裡面的Captions，很可能就不會出現在[BookCorpus](http://yknzhu.wixsite.com/mbweb)中，因此作者提出Vocabulary Expansion的方法，假設有一個Train好的word2vec，我們以<img alt="$V_{w2v}$" src="svgs/03fc29021278ecf0afbe05434a089a92.png?invert_in_darkmode" align="middle" width="32.827245000000005pt" height="22.381919999999983pt"/>來表示word2vec的Word Embedding Space，以<img alt="$V_{rnn}$" src="svgs/6f1e049413e91c535425c03a3cabecdb.png?invert_in_darkmode" align="middle" width="32.17929pt" height="22.381919999999983pt"/>表示RNN模型的Embedding Space，<img alt="$V_{w2v}$" src="svgs/03fc29021278ecf0afbe05434a089a92.png?invert_in_darkmode" align="middle" width="32.827245000000005pt" height="22.381919999999983pt"/>遠大於<img alt="$V_{rnn}$" src="svgs/6f1e049413e91c535425c03a3cabecdb.png?invert_in_darkmode" align="middle" width="32.17929pt" height="22.381919999999983pt"/>，Vocabulary Expansion的目的即在找到一個W，能使<img alt="$v’=Wv\;\mbox{for}\;v’\in V_{rnn}\;\mbox{and}\;v\in V_{w2v}$" src="svgs/bda47e77ceb6de14a1bfc93b9b78fbef.png?invert_in_darkmode" align="middle" width="244.17409500000002pt" height="22.745910000000016pt"/>，便可以把那些沒出現在Vocabulary的單字，轉換成對應的Embedding。  
+[Skip-Thought](https://arxiv.org/pdf/1506.06726.pdf) is an unsupervised learning model of sentence embedding. It abstracts the skip-gram model of word2vec to the sentence level, i.e., it predicts the context from the current sentence. The model of Skip-Thought consists of a GRU encoder and 2 GRU decoders. Feeding a sentence into the encoder, the decoders try to reconstruct the previous sentence and the next sentence.  
+The authors proposed Vocabulary Expansion to expand the encoder’s vocabulary to words it has not seen during training. Let <img alt="$V_{w2v}$" src="svgs/03fc29021278ecf0afbe05434a089a92.png?invert_in_darkmode" align="middle" width="32.827245000000005pt" height="22.381919999999983pt"/> be the word embedding space from some larger pretrained model like word2vec. Let <img alt="$V_{rnn}$" src="svgs/6f1e049413e91c535425c03a3cabecdb.png?invert_in_darkmode" align="middle" width="32.17929pt" height="22.381919999999983pt"/> be the RNN word embedding space. Vocabulary Expansion tries to construct a matrix **W**, such that <img alt="$v’=Wv\;\mbox{for}\;v’\in V_{rnn}\;\mbox{and}\;v\in V_{w2v}$" src="svgs/bda47e77ceb6de14a1bfc93b9b78fbef.png?invert_in_darkmode" align="middle" width="244.17409500000002pt" height="22.745910000000016pt"/>. Thus, any word in <img alt="$V_{w2v}$" src="svgs/03fc29021278ecf0afbe05434a089a92.png?invert_in_darkmode" align="middle" width="32.827245000000005pt" height="22.381919999999983pt"/> can now be projected into <img alt="$V_{rnn}$" src="svgs/6f1e049413e91c535425c03a3cabecdb.png?invert_in_darkmode" align="middle" width="32.17929pt" height="22.381919999999983pt"/> for encoding sentences.
 
 <a id='Text-to-Skip-Thought-Conversion'></a>
 **Text to Skip-Thought Conversion**  
-我們使用[Github](https://github.com/paarthneekhara/text-to-image)上的原始碼來產生Skip-Thought Vector，我們從[這裡](https://github.com/ryankiros/skip-thoughts#getting-started)下載在BookCorpus上Pretrain好的模型，使用generate_thought_vectors.py便能把我們前面處理好的train_captions.txt和test_captions.txt都轉換成h5py的格式，每個句子會被轉換成一個長度4800的向量，前2400維是由單向RNN模型產生的，後2400維則是雙向RNN，根據原作者的實驗，兩者一起使用效果通常最好。
+We use the code from [here](https://github.com/paarthneekhara/text-to-image) to generate Skip-Thought vectors. First, download the model pretrained on BookCorpus from [here](https://github.com/ryankiros/skip-thoughts#getting-started). Then, use generate_thought_vectors.py to convert train_captions.txt and test_captions.txt into h5py format. For each caption, a 2400 dimensional vector is generated from the unidirectional encoder and another 2400 dimensional vector from the bidirectional encoder. According to the authors of Skip-Thought, the concatenation of the two vectors usually yields better results on various NLP tasks.
 
 <a id='seq2seq-Embedding'></a>
 #### seq2seq Embedding
-由於我們無法Finetune Skip-Thought Vectors，因此我們額外Train一個Sequence-to-Sequence Model，希望能再加強我們句子的表現向量，基本上我們直接修改Lab13的程式碼，主要差異如下：Decoder部分的Target改為原本Encoder輸入的句子，我們希望模型可以利用Encoder最後產生的Hidden State來回復原本的句子；以embedding_rnn_seq2seq取代embedding_attention_seq2seq，因為我們不希望Model偷看原本Input的句子，並直接將結果複製到Output。  
-由於我們沒有進行Encoder和GAN的End-to-end Training，因此我們必須想辦法從Train好的seq2seq取得句子的表現向量，我們有測試了以下兩種方式，第一種方式必須將每個句子餵入模型中，用**get_tensor_by_name**取得embedding_rnn_seq2seq中Encoder最後一層LSTM Cell所輸出的Hidden State，做為我們的向量:
+We train a LSTM Sequence-to-Sequence Model to enhance our sentence embeddings. The original sentence is fed into the encoder to get a encoded vector (the last hidden state). We want the decoder to reconstruct the exact sentence from this vector. Note that, attention mechanism is not applicable here, since it peeks the input instead of learning to reconstruct it. After convergence, we try the following methods to get the sentence embeddings:
+1. Use **get_tensor_by_name** to retrieve the last hidden state of the encoder of embedding_rnn_seq2seq:
 
-    encoder_output = tf.get_default_graph().get_tensor_by_name("seq2seq_rnn
-        /embedding_rnn_seq2seq/embedding_rnn_decoder/rnn_decoder/rnn_decoder
-        /output_projection_wrapper/output_projection_wrapper/lstm_cell/concat:0")
+       encoder_output = tf.get_default_graph().get_tensor_by_name("seq2seq_rnn
+           /embedding_rnn_seq2seq/embedding_rnn_decoder/rnn_decoder/rnn_decoder
+           /output_projection_wrapper/output_projection_wrapper/lstm_cell/concat:0")
     
-第二種從Training Variable中找到名稱包含**embedding_wrapper/embedding:0**的Tensor，該矩陣即為我們每個單字的Look-up Table，將每個句子轉為Bag-of-words的形式與這個矩陣進行內積，即可得到最後的向量表示:
+2. Extract the embedding matrix **embedding_wrapper/embedding:0** from the seq2seq model. The sentence embeddings can be generated by performing inner product on this matrix and the Bag-of-words representations of the original sentences.
 
-    for var in tf.trainable_variables():
-        if var.name == 'seq2seq_rnn/embedding_rnn_seq2seq/rnn/embedding_wrapper/embedding:0':
-            embedding_op = var
+       for var in tf.trainable_variables():
+           if var.name == 'seq2seq_rnn/embedding_rnn_seq2seq/rnn/embedding_wrapper/embedding:0':
+               embedding_op = var
 
 [Back to Top](#Top)
 
 <a id='Network-Architecture'></a>
 ### Network Architecture
-StackGAN的整體架構如下圖，基本上每個Generator和Discriminator的架構都和較早的[GAN-INT-CLS](https://github.com/reedscot/icml2016)差不多，都在DCGAN的雛型上進行一些細部的變動。
+The architecture of StackGAN is very similar to that of [GAN-INT-CLS](https://github.com/reedscot/icml2016) with some minor differences. 
 
 <img src="images/StackGAN.jpg"> 
 
